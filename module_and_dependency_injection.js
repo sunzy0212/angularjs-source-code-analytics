@@ -36,7 +36,13 @@ function setupModuleLoader(window) {
 			requires: requires,
 			constant: invokeLater('constant'), 
 			provider: invokeLater('provider'),
-			_invokeQueue: invokeQueue
+			run: function(fn) {
+			    moduleInstance._runBlocks.push(fn);
+				return moduleInstance; 
+			},
+			_invokeQueue: invokeQueue,
+			_runBlocks: []
+
 		};
 		modules[name] = moduleInstance;
 		return moduleInstance; 
@@ -69,6 +75,7 @@ function createInjector(modulesToLoad) {
 	};
 
 	var loadedModules = {};
+	var runBlocks = [];
 	_.forEach(modulesToLoad, function loadModule(moduleName) { 
 		if (!loadedModules.hasOwnProperty(moduleName)) {
 			loadedModules[moduleName] = true;
@@ -78,8 +85,12 @@ function createInjector(modulesToLoad) {
 				var method = invokeArgs[0];
 				var args = invokeArgs[1]; 
 				$provide[method].apply($provide, args);
-			});
+			});	
+			runBlocks = runBlocks.concat(module._runBlocks);
 		}
+	});
+	_.forEach(runBlocks, function(runBlock) {
+	  	instanceInjector.invoke(runBlock);
 	});
 function createInternalInjector(cache, factoryFn){
 	function invoke(fn, self, locals) {
