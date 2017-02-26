@@ -45,15 +45,22 @@ function setupModuleLoader(window) {
 
 var INSTANTIATING = {};
 function createInjector(modulesToLoad) { 
-	var providerCache = {};	// cache of provider
-	var instanceCache = {};	// cache of instance of provider
+	var providerCache = {};
+	var providerInjector = createInternalInjector(providerCache, function() {
+		throw 'Unknown provider:' + path.join(  <-  ); 
+	});
+	var instanceCache = {};
+	var instanceInjector = createInternalInjector(instanceCache, function(name) {
+		var provider = providerInjector.get(name + 'Provider');
+		return instanceInjector.invoke(provider.$get, provider); 
+	});
 	var $provide = {
 		constant: function(key, value) {
 			instanceCache[key] = value;
 		},
 		provider: function(key, provider) { 
 			if (_.isFunction(provider)) {
-				provider = instantiate(provider); 
+				provider = providerInjector.instantiate(provider); 
 			}
 			providerCache[key +  'Provider' ] = provider;
 		}
@@ -72,7 +79,7 @@ function createInjector(modulesToLoad) {
 			});
 		}
 	});
-
+function createInternalInjector(cache, factoryFn){
 	function invoke(fn, self, locals) {
 		var args = _.map(fn.$inject, function(token) {
 			if (_.isString(token)) {
@@ -86,35 +93,33 @@ function createInjector(modulesToLoad) {
 	}
 
 	function getService(name) {
-		if (instanceCache.hasOwnProperty(name)) {
-			if (instanceCache[name] === INSTANTIATING) {
+		if (cache.hasOwnProperty(name)) {
+			if (cache[name] === INSTANTIATING) {
 				throw new Error('Circular dependency found.');
 			}
-			return instanceCache[name];
-		} else if (providerCache.hasOwnProperty(name + 'Provider' )) {
+			return cache[name];
+		} else {
 			// if an error occurred when executing provider.$get, should remove the marker.
 			try {
-				instanceCache[name] = INSTANTIATING;
-				var provider = providerCache[name + 'Provider' ];
-				var instance = instanceCache[name] = invoke(provider.$get, provider);
-				return instance; 	
+				return (cache[name] = factoryFn(name)); 	
 			} finally {
-				if (instanceCache[name] === INSTANTIATING) {
-					delete instanceCache[name]; 
+				if (cache[name] === INSTANTIATING) {
+					delete cache[name]; 
 				}
 			}
 		}	
 	}
-
 	return {
 		has: function(key) {
-			return instanceCache.hasOwnProperty(key)
+			return cache.hasOwnProperty(key)
 				|| providerCache.hasOwnProperty(key + 'Provider');
 		},
 		get: getService
 		invoke: invoke,
 		annotate: annotate
 	}; 
+}
+	return instanceInjector;
 }
 
 
