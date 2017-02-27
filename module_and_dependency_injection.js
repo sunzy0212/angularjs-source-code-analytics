@@ -37,6 +37,7 @@ function setupModuleLoader(window) {
 			constant: invokeLater('constant'), 
 			provider: invokeLater('provider'),
 			factory: invokeLater('factory'),
+			service: invokeLater('service'),
 			run: function(fn) {
 			    moduleInstance._runBlocks.push(fn);
 				return moduleInstance; 
@@ -84,6 +85,11 @@ function createInjector(modulesToLoad) {
 		},
 		factory: function (key, factoryFn) {
 			this.provider(key, {$get: enforceReturnValue(factoryFn)});
+		},
+		service: function (key, serviceFn) {
+			this.factory(key, function () {
+				return instanceInjector.instantiate(serviceFn);
+			});
 		}
 	};
 
