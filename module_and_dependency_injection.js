@@ -36,6 +36,7 @@ function setupModuleLoader(window) {
 			requires: requires,
 			constant: invokeLater('constant'), 
 			provider: invokeLater('provider'),
+			factory: invokeLater('factory'),
 			run: function(fn) {
 			    moduleInstance._runBlocks.push(fn);
 				return moduleInstance; 
@@ -62,6 +63,15 @@ function createInjector(modulesToLoad) {
 		var provider = providerInjector.get(name + 'Provider');
 		return instanceInjector.invoke(provider.$get, provider); 
 	});
+	function enforceReturnValue(factoryFn) { 
+		return function() {
+			var value = instanceInjector.invoke(factoryFn); 
+			if (_.isUndefined(value)) {
+				throw  'factory must return a value'; 
+			}
+			return value; 
+		};
+	}
 	var $provide = {
 		constant: function(key, value) {
 			instanceCache[key] = value;
@@ -71,6 +81,9 @@ function createInjector(modulesToLoad) {
 				provider = providerInjector.instantiate(provider); 
 			}
 			providerCache[key +  'Provider' ] = provider;
+		},
+		factory: function (key, factoryFn) {
+			this.provider(key, {$get: enforceReturnValue(factoryFn)});
 		}
 	};
 
